@@ -220,7 +220,7 @@ class PIDControlApp(QMainWindow):
             self.ax.set_title("Motor Speed Over Time")
             self.ax.set_xlabel("Time (s)")
             self.ax.set_ylabel("Speed (RPM)")
-            self.ax.set_ylim(0, 2500)  # Adapter à la plage de vitesses
+            self.ax.set_ylim(0, 7000)  # Adapter à la plage de vitesses
             self.ax.legend()
             self.canvas.draw()
 
