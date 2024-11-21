@@ -1,11 +1,8 @@
-from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                               QPushButton, QLabel, QDoubleSpinBox, QCheckBox, QSlider, QGroupBox)
-from PySide6.QtCore import Qt, QTimer
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
-import numpy as np
-import time
-
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+                               QPushButton, QLabel, QDoubleSpinBox, QCheckBox, QSlider, QGroupBox)
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from telemetrix import telemetrix
 
 from Class.ClassMotor import Motor
@@ -86,10 +83,6 @@ class PIDControlApp(QMainWindow):
         self.update_chart_button = QPushButton("Update Chart")
         control_layout.addWidget(self.update_chart_button)
 
-        # Bouton de mesure de vitesse
-        self.measure_speed_button = QPushButton("Measure Speed")
-        control_layout.addWidget(self.measure_speed_button)
-
         # Ajouter le panneau de contrôle au layout principal
         main_layout.addWidget(control_panel)
 
@@ -121,7 +114,7 @@ class PIDControlApp(QMainWindow):
         ###############################################################################################
         ##########################################REGARGER#########################################
         ###############################################################################################
-        # Initialisation du QTimer pour mettre à jour le graphique toutes les 1 seconde
+        # Initialisation du QTimer pour mettre à jour le graphique toutes les 0.1 seconde
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_chart_real_time)  # Connecte le timer à la méthode de mise à jour
         self.timer.start(100)  # Intervalle de 100 ms (0.1 seconde)
@@ -208,6 +201,7 @@ class PIDControlApp(QMainWindow):
             # Mesurer la vitesse réelle du moteur
             measured_speed = self.motor.measure_speed(measurement_time=0.1)  # Mesure rapide sur 100 ms
 
+
             # Temps écoulé
             current_time = self.time_data[-1] + 0.1 if self.time_data else 0
 
@@ -226,10 +220,16 @@ class PIDControlApp(QMainWindow):
             self.ax.set_title("Motor Speed Over Time")
             self.ax.set_xlabel("Time (s)")
             self.ax.set_ylabel("Speed (RPM)")
-            self.ax.set_ylim(0, 7000)  # Adapter à la plage de vitesses
+            self.ax.set_ylim(0, 2500)  # Adapter à la plage de vitesses
             self.ax.legend()
             self.canvas.draw()
+
+            #Mise à jour RPM dans le QLabel
+            self.actual_speed_display.setText(f"{measured_speed:.2f} RPM")
 
         except Exception as e:
             print(f"Erreur lors de la mise à jour du graphique : {e}")
 
+    def closeEvent(self, event):
+        print("Programme fermé")
+        self.motor.stop()

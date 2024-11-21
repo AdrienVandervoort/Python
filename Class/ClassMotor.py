@@ -1,8 +1,8 @@
-from telemetrix import telemetrix
 import time
 
+
 class Motor:
-    def __init__(self, board, pwm_pin, dir_pin, encoder_pin_a, encoder_pin_b, ticks_per_revolution=12):
+    def __init__(self, board, pwm_pin, dir_pin, encoder_pin_a, encoder_pin_b, ticks_per_revolution):
         """
         Initialise le moteur avec les broches et les paramètres nécessaires.
         
@@ -19,6 +19,7 @@ class Motor:
         self.dir_pin = dir_pin
         self.encoder_pin_a = encoder_pin_a
         self.encoder_pin_b = encoder_pin_b
+        ticks_per_revolution = 12
         self.ticks_per_revolution = ticks_per_revolution
         self.encoder_count = 0
 
@@ -26,7 +27,7 @@ class Motor:
         self.board.set_pin_mode_digital_output(dir_pin)
         self.board.set_pin_mode_analog_output(pwm_pin)
         self.board.set_pin_mode_digital_input(encoder_pin_a, callback=self.encoder_callback)
-        
+
         print(f"Moteur initialisé avec PWM={pwm_pin}, DIR={dir_pin}, Encoder A={encoder_pin_a}, B={encoder_pin_b}")
 
     def encoder_callback(self, data):
@@ -69,6 +70,7 @@ class Motor:
         time.sleep(measurement_time)
         impulsions = self.encoder_count
         rpm = self.calculate_speed(impulsions, measurement_time)
+
         print(f"Nombre d'impulsions : {impulsions}")
         print(f"Vitesse calculée : {rpm:.2f} RPM")
         return rpm
@@ -77,10 +79,16 @@ class Motor:
         """
         Calcule la vitesse en tours par minute (RPM).
         """
+        # 0.1                 ou             12
         if time_interval <= 0 or self.ticks_per_revolution <= 0:
             print("Erreur : Intervalle de temps ou ticks par tour invalide.")
             return 0
 
+        print(time_interval,"debugtime")
+        print(self.ticks_per_revolution,"debugtick")
         tours = impulsions / self.ticks_per_revolution
         rpm = (tours / time_interval) * 60
         return rpm
+
+    def set_pid_parameters(self, p_value, i_value, d_value):
+        pass
