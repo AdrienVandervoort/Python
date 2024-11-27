@@ -23,6 +23,9 @@ class Motor:
         self.ticks_per_revolution = ticks_per_revolution
         self.encoder_count = 0
 
+        # Initialise la liste des deux dernières vitesses
+        self.last_five_rpm = []
+
         # Initialisation des broches
         self.board.set_pin_mode_digital_output(dir_pin)
         self.board.set_pin_mode_analog_output(pwm_pin)
@@ -36,7 +39,7 @@ class Motor:
         """
         self.encoder_count += 0.5  # Incrementer selon les fronts détectés , il faut uniquement compter les fronts montants donc +0.5 par front
 
-    def start(self, speed=255):
+    def start(self, speed=200):
         """
         Démarre le moteur avec une vitesse donnée.
         """
@@ -71,9 +74,16 @@ class Motor:
         impulsions = self.encoder_count
         rpm = self.calculate_speed(impulsions, measurement_time)
 
+
+        self.last_five_rpm.append(rpm)
+        if len(self.last_five_rpm) > 5:  # Ne garder que les deux dernières
+            self.last_five_rpm.pop(0)
+        print(self.last_five_rpm, "test11111")
+        moy_rpm = sum(self.last_five_rpm) / len(self.last_five_rpm)
         print(f"Nombre d'impulsions : {impulsions}")
-        print(f"Vitesse calculée : {rpm:.2f} RPM")
-        return rpm
+        print(f"Vitesse moyenne : {moy_rpm:.2f} RPM")
+        print(moy_rpm, "TESTETSTETSTETSTE")
+        return moy_rpm
 
     def calculate_speed(self, impulsions, time_interval):
         """
@@ -84,8 +94,8 @@ class Motor:
             print("Erreur : Intervalle de temps ou ticks par tour invalide.")
             return 0
 
-        print(time_interval,"debugtime")
-        print(self.ticks_per_revolution,"debugtick")
+        print(time_interval, "debugtime")
+        print(self.ticks_per_revolution, "debugtick")
         tours = impulsions / self.ticks_per_revolution
         rpm = (tours / time_interval) * 60
         return rpm

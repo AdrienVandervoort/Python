@@ -44,7 +44,7 @@ class PIDControlApp(QMainWindow):
         self.set_point_label = QLabel("Speed set point (RPM)")
         self.set_point_slider = QSlider(Qt.Horizontal)
         self.set_point_slider.setMinimum(0)
-        self.set_point_slider.setMaximum(7000)
+        self.set_point_slider.setMaximum(2000)
         self.set_point_slider.setValue(30)
         self.set_point_value = QLabel("30")
         self.set_point_slider.valueChanged.connect(self.update_set_point)
@@ -117,7 +117,7 @@ class PIDControlApp(QMainWindow):
         # Initialisation du QTimer pour mettre à jour le graphique toutes les 0.1 seconde
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_chart_real_time)  # Connecte le timer à la méthode de mise à jour
-        self.timer.start(100)  # Intervalle de 100 ms (0.1 seconde)
+        self.timer.start(100)  # Intervalle de 1000 ms (1 seconde)
 
         # Données fictives pour le graphique
         self.time_data = []  # On va commencer sans données
@@ -225,6 +225,7 @@ class PIDControlApp(QMainWindow):
             self.canvas.draw()
 
             #Mise à jour RPM dans le QLabel
+            print(f"{measured_speed:.2f}, AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             self.actual_speed_display.setText(f"{measured_speed:.2f} RPM")
 
         except Exception as e:
