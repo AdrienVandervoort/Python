@@ -225,7 +225,7 @@ class PIDControlApp(QMainWindow):
             self.canvas.draw()
 
             #Mise à jour RPM dans le QLabel
-            print(f"{measured_speed:.2f}, AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+            print(f"{measured_speed:.2f}, Mise à jour RPM dans le QLabel")
             self.actual_speed_display.setText(f"{measured_speed:.2f} RPM")
 
         except Exception as e:

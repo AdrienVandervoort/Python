@@ -78,11 +78,11 @@ class Motor:
         self.last_five_rpm.append(rpm)
         if len(self.last_five_rpm) > 5:  # Ne garder que les deux dernières
             self.last_five_rpm.pop(0)
-        print(self.last_five_rpm, "test11111")
+        print(self.last_five_rpm, "5 dernieres valeures ")
         moy_rpm = sum(self.last_five_rpm) / len(self.last_five_rpm)
         print(f"Nombre d'impulsions : {impulsions}")
         print(f"Vitesse moyenne : {moy_rpm:.2f} RPM")
-        print(moy_rpm, "TESTETSTETSTETSTE")
+        print(moy_rpm, "ReponseMoyenne")
         return moy_rpm
 
     def calculate_speed(self, impulsions, time_interval):
