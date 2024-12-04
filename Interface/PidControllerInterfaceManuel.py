@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                                QPushButton, QLabel, QDoubleSpinBox, QCheckBox, QSlider, QGroupBox)
@@ -44,10 +45,17 @@ class PIDControlApp(QMainWindow):
         self.set_point_label = QLabel("Speed set point (RPM)")
         self.set_point_slider = QSlider(Qt.Horizontal)
         self.set_point_slider.setMinimum(0)
-        self.set_point_slider.setMaximum(2000)
-        self.set_point_slider.setValue(30)
-        self.set_point_value = QLabel("30")
+        self.set_point_slider.setMaximum(self.motor.maxspeed())
+        self.set_point_slider.setValue(0)
+        self.set_point_value = QLabel("0")
+        self.set_point_slider.setEnabled(True)  # S'assurer que le slider est activé
+
         self.set_point_slider.valueChanged.connect(self.update_set_point)
+
+        self.pwm_label = QLabel("PWM Value:")
+        self.pwm_display = QLabel("0.0")
+        control_layout.addWidget(self.pwm_label)
+        control_layout.addWidget(self.pwm_display)
 
         control_layout.addWidget(self.set_point_label)
         control_layout.addWidget(self.set_point_slider)
@@ -131,6 +139,7 @@ class PIDControlApp(QMainWindow):
         """Logique pour démarrer le moteur."""
         try:
             self.motor.start()
+            self.timer.start()
             print("Moteur démarré")
         except Exception as e:
             print(f"Erreur : {e}")
@@ -138,7 +147,8 @@ class PIDControlApp(QMainWindow):
     def stop_motor(self):
         """Logique pour arrêter le moteur."""
         try:
-            self.motor.stop()
+            self.motor.stop()  # Arrête le moteur
+            self.timer.stop()
             print("Moteur arrêté.")
         except Exception as e:
             print(f"Erreur : {e}")
@@ -198,38 +208,51 @@ class PIDControlApp(QMainWindow):
     def update_chart_real_time(self):
         """Met à jour le graphique avec les données de vitesse réelle en temps réel."""
         try:
-            # Mesurer la vitesse réelle du moteur
-            measured_speed = self.motor.measure_speed(measurement_time=0.1)  # Mesure rapide sur 100 ms
+            measured_speed = self.motor.measure_speed(measurement_time=0.1)
 
-
-            # Temps écoulé
             current_time = self.time_data[-1] + 0.1 if self.time_data else 0
-
-            # Ajouter les données au graphique
             self.time_data.append(current_time)
             self.speed_data.append(measured_speed)
 
-            # Limiter les données à 100 points pour ne pas saturer le graphique
             if len(self.time_data) > 100:
                 self.time_data = self.time_data[1:]
                 self.speed_data = self.speed_data[1:]
 
-            # Mettre à jour le graphique
+            rmpmax = self.motor.maxspeed()
+            self.update_motor_speed(self.set_point_slider.value())
+
+            # Ajuster dynamiquement la limite du slider
+            self.set_point_slider.setMaximum(rmpmax)
+
             self.ax.clear()
             self.ax.plot(self.time_data, self.speed_data, label="Measured Speed (RPM)", color="blue")
-            self.ax.set_title("Motor Speed Over Time")
+            self.ax.set_title(f"Motor Speed Over Time (Max: {rmpmax:.2f} RPM)")
             self.ax.set_xlabel("Time (s)")
             self.ax.set_ylabel("Speed (RPM)")
-            self.ax.set_ylim(0, 7000)  # Adapter à la plage de vitesses
+            self.ax.set_ylim(0.01, rmpmax)
             self.ax.legend()
             self.canvas.draw()
 
-            #Mise à jour RPM dans le QLabel
-            print(f"{measured_speed:.2f}, Mise à jour RPM dans le QLabel")
             self.actual_speed_display.setText(f"{measured_speed:.2f} RPM")
 
         except Exception as e:
             print(f"Erreur lors de la mise à jour du graphique : {e}")
+
+    def update_motor_speed(self, slider_value):
+        """Met à jour la vitesse du moteur en fonction de la valeur du slider."""
+        rmpmax = self.motor.maxspeed()
+
+        # Vérifier si rmpmax est zéro pour éviter la division par zéro
+        if rmpmax == 0:
+            print("Erreur : la vitesse maximale du moteur est égale à zéro.")
+            pwm = 0  # Eviter de diviser par zéro
+        else:
+            pwm = (slider_value / rmpmax) * 255
+            print(f"Le résultat de la PWM est {pwm}, affichage du slider : {slider_value}")
+
+        print(f"Le résultat de la PWM est {pwm}, affichage du slider : {slider_value}")
+        self.motor.start(pwm)
+        self.pwm_display.setText(f"{pwm:.2f}")
 
     def closeEvent(self, event):
         print("Programme fermé")

@@ -1,30 +1,19 @@
 import time
 
-
 class Motor:
     def __init__(self, board, pwm_pin, dir_pin, encoder_pin_a, encoder_pin_b, ticks_per_revolution):
         """
         Initialise le moteur avec les broches et les paramètres nécessaires.
-        
-        Args:
-            board: Instance de Telemetrix.
-            pwm_pin: Broche PWM pour la vitesse.
-            dir_pin: Broche direction.
-            encoder_pin_a: Broche A de l'encodeur.
-            encoder_pin_b: Broche B de l'encodeur (optionnel pour ce cas).
-            ticks_per_revolution: Nombre de ticks pour un tour complet.
         """
         self.board = board
         self.pwm_pin = pwm_pin
         self.dir_pin = dir_pin
         self.encoder_pin_a = encoder_pin_a
         self.encoder_pin_b = encoder_pin_b
-        ticks_per_revolution = 12
         self.ticks_per_revolution = ticks_per_revolution
         self.encoder_count = 0
-
-        # Initialise la liste des deux dernières vitesses
-        self.last_five_rpm = []
+        self.rmpmax = 0  # Initialise la vitesse maximale enregistrée
+        self.last_n_rpm = []  # Liste pour stocker les dernières vitesses mesurées
 
         # Initialisation des broches
         self.board.set_pin_mode_digital_output(dir_pin)
@@ -37,15 +26,16 @@ class Motor:
         """
         Callback pour gérer les interruptions du signal A de l'encodeur.
         """
-        self.encoder_count += 0.5  # Incrementer selon les fronts détectés , il faut uniquement compter les fronts montants donc +0.5 par front
+        # Compte uniquement les fronts montants
+        self.encoder_count += 0.5
 
-    def start(self, speed=200):
+    def start(self, speed=255):
         """
         Démarre le moteur avec une vitesse donnée.
         """
         if 0 <= speed <= 255:
             self.board.digital_write(self.dir_pin, 1)
-            self.board.analog_write(self.pwm_pin, speed)
+            self.board.analog_write(self.pwm_pin, int(speed))
             print(f"Moteur démarré à vitesse : {speed}")
         else:
             print("Erreur : La vitesse doit être entre 0 et 255.")
@@ -61,44 +51,47 @@ class Motor:
     def measure_speed(self, measurement_time=1):
         """
         Mesure la vitesse du moteur (RPM) sur une durée donnée.
-        
-        Args:
-            measurement_time: Durée de la mesure en secondes.
-        
-        Returns:
-            La vitesse calculée en RPM.
         """
         print(f"Mesure de la vitesse pendant {measurement_time} seconde(s)...")
         self.encoder_count = 0
-        time.sleep(measurement_time)
+        time.sleep(0.1)
         impulsions = self.encoder_count
         rpm = self.calculate_speed(impulsions, measurement_time)
 
+        # Ajoute la vitesse mesurée à la liste et conserve les 5 dernières valeurs
+        self.last_n_rpm.append(rpm)
+        if len(self.last_n_rpm) > 5:
+            self.last_n_rpm.pop(0)
 
-        self.last_five_rpm.append(rpm)
-        if len(self.last_five_rpm) > 5:  # Ne garder que les deux dernières
-            self.last_five_rpm.pop(0)
-        print(self.last_five_rpm, "5 dernieres valeures ")
-        moy_rpm = sum(self.last_five_rpm) / len(self.last_five_rpm)
+        # Met à jour la vitesse maximale enregistrée
+        if rpm !=0:
+         self.rmpmax = max(self.rmpmax, rpm)
+
+        # Calcul de la moyenne des dernières vitesses
+        moy_rpm = sum(self.last_n_rpm) / len(self.last_n_rpm)
+
         print(f"Nombre d'impulsions : {impulsions}")
         print(f"Vitesse moyenne : {moy_rpm:.2f} RPM")
-        print(moy_rpm, "ReponseMoyenne")
         return moy_rpm
 
     def calculate_speed(self, impulsions, time_interval):
         """
         Calcule la vitesse en tours par minute (RPM).
         """
-        # 0.1                 ou             12
         if time_interval <= 0 or self.ticks_per_revolution <= 0:
             print("Erreur : Intervalle de temps ou ticks par tour invalide.")
             return 0
 
-        print(time_interval, "debugtime")
-        print(self.ticks_per_revolution, "debugtick")
         tours = impulsions / self.ticks_per_revolution
         rpm = (tours / time_interval) * 60
         return rpm
 
-    def set_pid_parameters(self, p_value, i_value, d_value):
-        pass
+    def maxspeed(self):
+
+        """
+        Retourne la vitesse maximale enregistrée.
+        """
+        return self.rmpmax
+
+
+
