@@ -7,6 +7,8 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from telemetrix import telemetrix
 
 from Class.ClassMotor import Motor
+import pandas as pd
+from datetime import datetime
 
 
 class PIDControlApp(QMainWindow):
