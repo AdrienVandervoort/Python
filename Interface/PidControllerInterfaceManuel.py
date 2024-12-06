@@ -249,12 +249,12 @@ class PIDControlApp(QMainWindow):
             print("Erreur : la vitesse maximale du moteur est égale à zéro.")
             pwm = 0  # Eviter de diviser par zéro
         else:
-            pwm = (slider_value / rmpmax) * 255
+            pwm = (slider_value / rmpmax) * (255-70)
             print(f"Le résultat de la PWM est {pwm}, affichage du slider : {slider_value}")
 
         print(f"Le résultat de la PWM est {pwm}, affichage du slider : {slider_value}")
         self.motor.start(pwm)
-        self.pwm_display.setText(f"{pwm:.2f}")
+        self.pwm_display.setText(f"{pwm+70:.2f}")
 
     def closeEvent(self, event):
         print("Programme fermé")

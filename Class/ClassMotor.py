@@ -1,3 +1,4 @@
+import os
 import time
 
 class Motor:
@@ -14,7 +15,9 @@ class Motor:
         self.encoder_count = 0
         self.rmpmax = 0  # Initialise la vitesse maximale enregistrée
         self.last_n_rpm = []  # Liste pour stocker les dernières vitesses mesurées
-
+        self.is_first_run = True  # Booléen pour détecter le premier lancement
+        self.is_first_run = not os.path.exists("motor_state.txt")
+        desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
         # Initialisation des broches
         self.board.set_pin_mode_digital_output(dir_pin)
         self.board.set_pin_mode_analog_output(pwm_pin)
@@ -37,6 +40,7 @@ class Motor:
             self.board.digital_write(self.dir_pin, 1)
             self.board.analog_write(self.pwm_pin, int(speed))
             print(f"Moteur démarré à vitesse : {speed}")
+
         else:
             print("Erreur : La vitesse doit être entre 0 et 255.")
 
@@ -92,6 +96,3 @@ class Motor:
         Retourne la vitesse maximale enregistrée.
         """
         return self.rmpmax
-
-
-
