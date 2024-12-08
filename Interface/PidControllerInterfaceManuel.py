@@ -1,3 +1,5 @@
+import os
+
 import matplotlib.pyplot as plt
 
 from PySide6.QtCore import Qt, QTimer
@@ -18,6 +20,9 @@ class PIDControlApp(QMainWindow):
         self.setWindowTitle("PID Controller Interface")
         self.setGeometry(100, 100, 800, 600)
 
+        # === Chargement de rpmmax depuis le fichier .dat ===
+        self.rpmmax = self.load_rpmmax()
+
         # === Initialisation de la carte et du moteur ===
         print("Connexion à l'Arduino...")
         self.board = telemetrix.Telemetrix()
@@ -30,8 +35,12 @@ class PIDControlApp(QMainWindow):
             ticks_per_revolution=12
         )
 
+
         # Layout principal
         main_layout = QHBoxLayout()
+
+        self.slider_data = []  # Liste pour les valeurs du slider
+        self.pwm_data = []  # Liste pour les valeurs de la PWM
 
         # Création du panneau de contrôle
         control_panel = QWidget()
@@ -47,7 +56,7 @@ class PIDControlApp(QMainWindow):
         self.set_point_label = QLabel("Speed set point (RPM)")
         self.set_point_slider = QSlider(Qt.Horizontal)
         self.set_point_slider.setMinimum(0)
-        self.set_point_slider.setMaximum(self.motor.maxspeed())
+        self.set_point_slider.setMaximum(int(self.rpmmax))
         self.set_point_slider.setValue(0)
         self.set_point_value = QLabel("0")
         self.set_point_slider.setEnabled(True)  # S'assurer que le slider est activé
@@ -114,7 +123,7 @@ class PIDControlApp(QMainWindow):
         ###############################################################################################
         ##########################################PAS REGARGER#########################################
         ###############################################################################################
-         # Paramètres de la sinusoïdale
+        # Paramètres de la sinusoïdale
         '''
         self.amplitude = 1000  # Amplitude de la sinusoïdale (valeur max de la vitesse)
         self.frequency = 0.1  # Fréquence de la sinusoïdale (période)
@@ -127,7 +136,7 @@ class PIDControlApp(QMainWindow):
         # Initialisation du QTimer pour mettre à jour le graphique toutes les 0.1 seconde
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_chart_real_time)  # Connecte le timer à la méthode de mise à jour
-        self.timer.start(100)  # Intervalle de 1000 ms (1 seconde)
+        self.timer.start(100)  # Intervalle de 100 ms (0.1 seconde)
 
         # Données fictives pour le graphique
         self.time_data = []  # On va commencer sans données
@@ -154,6 +163,23 @@ class PIDControlApp(QMainWindow):
             print("Moteur arrêté.")
         except Exception as e:
             print(f"Erreur : {e}")
+
+    def load_rpmmax(self):
+        """Charge la valeur de rpmmax depuis le fichier .dat ou retourne une valeur par défaut."""
+        try:
+            desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+            file_path = os.path.join(desktop, "rpm_average.dat")
+            with open(file_path, "r") as file:
+                content = file.read()
+                rpmmax = float(content.split(":")[1].strip())
+         #       print(f"Valeur chargée depuis {file_path} : {rpmmax:.2f}")
+                return rpmmax
+        except FileNotFoundError:
+          #  print("Fichier rpm_average.dat introuvable. Défaut à 1500 RPM.")
+            return 2000
+        except Exception as e:
+            print(f"Erreur lors du chargement de rpmmax : {e}")
+            return 2000
 
     def update_pid_parameters(self):
         """Met à jour les paramètres PID du moteur en fonction des valeurs saisies et des cases cochées."""
@@ -203,6 +229,7 @@ class PIDControlApp(QMainWindow):
         self.ax.set_ylim(min(self.speed_data) - 100, max(self.speed_data) + 100)  # Ajuster l'échelle Y
         self.ax.legend()
         self.canvas.draw()'''
+
     ###############################################################################################
     ##########################################REGARGER#########################################
     ###############################################################################################
@@ -210,52 +237,72 @@ class PIDControlApp(QMainWindow):
     def update_chart_real_time(self):
         """Met à jour le graphique avec les données de vitesse réelle en temps réel."""
         try:
+            rpmmax = self.load_rpmmax()
             measured_speed = self.motor.measure_speed(measurement_time=0.1)
 
             current_time = self.time_data[-1] + 0.1 if self.time_data else 0
             self.time_data.append(current_time)
             self.speed_data.append(measured_speed)
 
+            # Ajouter la valeur du slider (vitesse de consigne) et la valeur de la PWM
+            slider_value = self.set_point_slider.value()
+            pwm_value = (slider_value / rpmmax) * 255  # Calcul de la PWM
+
+            self.slider_data.append(slider_value)  # Liste pour les valeurs du slider
+            self.pwm_data.append(pwm_value)  # Liste pour les valeurs de PWM
+
             if len(self.time_data) > 100:
                 self.time_data = self.time_data[1:]
                 self.speed_data = self.speed_data[1:]
+                self.slider_data = self.slider_data[1:]
+                self.pwm_data = self.pwm_data[1:]
 
-            rmpmax = self.motor.maxspeed()
-            self.update_motor_speed(self.set_point_slider.value())
+            self.update_motor_speed(slider_value)
 
             # Ajuster dynamiquement la limite du slider
-            self.set_point_slider.setMaximum(rmpmax)
+            self.set_point_slider.setMaximum(rpmmax)
 
+            # Mise à jour du graphique
             self.ax.clear()
+
+            # Tracer la vitesse mesurée
             self.ax.plot(self.time_data, self.speed_data, label="Measured Speed (RPM)", color="blue")
-            self.ax.set_title(f"Motor Speed Over Time (Max: {rmpmax:.2f} RPM)")
+
+            # Tracer la valeur du slider et la PWM
+            self.ax.plot(self.time_data, self.slider_data, label="Set Point (Slider)", color="orange", linestyle="--")
+            self.ax.plot(self.time_data, self.pwm_data, label="PWM Value", color="green", linestyle=":")
+
+            self.ax.set_title(f"Motor Speed Over Time (Max: {rpmmax:.2f} RPM)")
             self.ax.set_xlabel("Time (s)")
-            self.ax.set_ylabel("Speed (RPM)")
-            self.ax.set_ylim(0.01, rmpmax)
+            self.ax.set_ylabel("Speed / Value")
+            self.ax.set_ylim(0,
+                             max(self.speed_data + self.slider_data + self.pwm_data) + 1000)  # Ajuste dynamique des limites
             self.ax.legend()
             self.canvas.draw()
 
+            # Mise à jour de l'affichage de la vitesse mesurée
             self.actual_speed_display.setText(f"{measured_speed:.2f} RPM")
+            self.pwm_display.setText(f"{pwm_value:.2f}")
 
         except Exception as e:
             print(f"Erreur lors de la mise à jour du graphique : {e}")
 
     def update_motor_speed(self, slider_value):
         """Met à jour la vitesse du moteur en fonction de la valeur du slider."""
-        rmpmax = self.motor.maxspeed()
+        rpmmaxmotor = self.rpmmax
 
         # Vérifier si rmpmax est zéro pour éviter la division par zéro
-        if rmpmax == 0:
+        if rpmmaxmotor == 0:
             print("Erreur : la vitesse maximale du moteur est égale à zéro.")
             pwm = 0  # Eviter de diviser par zéro
         else:
-            pwm = (slider_value / rmpmax) * (255-70)
-            print(f"Le résultat de la PWM est {pwm}, affichage du slider : {slider_value}")
+            pwm = (slider_value / rpmmaxmotor) * 255
 
-        print(f"Le résultat de la PWM est {pwm}, affichage du slider : {slider_value}")
+        #print(f"Le résultat de la PWM est {pwm}, affichage du slider : {slider_value}")
         self.motor.start(pwm)
-        self.pwm_display.setText(f"{pwm+70:.2f}")
+        self.pwm_display.setText(f"{pwm:.2f}")
 
     def closeEvent(self, event):
         print("Programme fermé")
         self.motor.stop()
+        self.timer.stop()
