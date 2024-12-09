@@ -176,10 +176,10 @@ class PIDControlApp(QMainWindow):
                 return rpmmax
         except FileNotFoundError:
           #  print("Fichier rpm_average.dat introuvable. Défaut à 1500 RPM.")
-            return 2000
+            return 1600
         except Exception as e:
             print(f"Erreur lors du chargement de rpmmax : {e}")
-            return 2000
+            return 1600
 
     def update_pid_parameters(self):
         """Met à jour les paramètres PID du moteur en fonction des valeurs saisies et des cases cochées."""
