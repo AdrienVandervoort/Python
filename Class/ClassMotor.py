@@ -22,7 +22,16 @@ class Motor:
         self.board.set_pin_mode_analog_output(pwm_pin)
         self.board.set_pin_mode_digital_input(encoder_pin_a, callback=self.encoder_callback)
 
-       # print(f"Moteur initialisé avec PWM={pwm_pin}, DIR={dir_pin}, Encoder A={encoder_pin_a}, B={encoder_pin_b}")
+        # PID parameters
+        self.kp = 0.0
+        self.ki = 0.0
+        self.kd = 0.0
+
+        # PID state variables
+        self.previous_error = 0.0
+        self.integral = 0.0
+
+    # print(f"Moteur initialisé avec PWM={pwm_pin}, DIR={dir_pin}, Encoder A={encoder_pin_a}, B={encoder_pin_b}")
 
     def encoder_callback(self, data):
         """
@@ -31,14 +40,14 @@ class Motor:
         # Compte uniquement les fronts montants
         self.encoder_count += 0.5
 
-    def start(self, speed=255):
+    def start(self, speed):
         """
         Démarre le moteur avec une vitesse donnée.
         """
         if 0 <= speed <= 255:
             self.board.digital_write(self.dir_pin, 1)
             self.board.analog_write(self.pwm_pin, int(speed))
-          #  print(f"Moteur démarré à vitesse : {speed}")
+        #  print(f"Moteur démarré à vitesse : {speed}")
 
         else:
             print("Erreur : La vitesse doit être entre 0 et 255.")
@@ -51,11 +60,55 @@ class Motor:
         self.board.digital_write(self.dir_pin, 0)
         print("Moteur arrêté.")
 
+    def set_pid_parameters(self, kp, ki, kd):
+        """Set the PID coefficients."""
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+
+    def pid_control(self, set_point, actual_speed, dt=1):
+        """
+        Perform PID control calculation.
+
+        :param set_point: Desired speed (RPM)
+        :param actual_speed: Measured speed (RPM)
+        :param dt: Time difference in seconds
+        :return: PWM output (0 to 255)
+        """
+        # Calculate error
+
+        # error = abs(actual_speed - set_point)
+        error = (set_point - actual_speed)
+        print(self.previous_error, "erreur prec", error, "erreur actuelle")
+
+        # Proportional term
+        proportional = self.kp * error
+
+        # Integral term
+        self.integral += error * dt
+        integral = self.ki * self.integral
+
+        # Derivative term
+        derivative = self.kd * (error - self.previous_error) / dt
+
+        # PID output
+        output = proportional + integral + derivative
+
+        # Clamp output to valid PWM range (0 to 255)
+        output = max(0, min(255, output))
+        print(output, "output")
+
+        # Save the current error for the next derivative calculation
+        self.previous_error = error
+
+        # print(f"PID Control: SetPoint={set_point}, Actual={actual_speed}, Output={output}")
+        return output
+
     def measure_speed(self, measurement_time):
         """
         Mesure la vitesse du moteur (RPM) sur une durée donnée.
         """
-       # print(f"Mesure de la vitesse pendant {measurement_time} seconde(s)...")
+        # print(f"Mesure de la vitesse pendant {measurement_time} seconde(s)...")
         self.encoder_count = 0
         time.sleep(measurement_time)
         impulsions = self.encoder_count
@@ -66,14 +119,14 @@ class Motor:
         if len(self.last_n_rpm) > 10:
             self.last_n_rpm.pop(0)
 
-       # print("Dernières 10 vitesses mesurées (RPM) :")
-        print(", ".join(f"{value:.2f}" for value in self.last_n_rpm))
+        # print("Dernières 10 vitesses mesurées (RPM) :")
+        # print(", ".join(f"{value:.2f}" for value in self.last_n_rpm))
 
         # Calcul de la moyenne des dernières vitesses
         moy_rpm = sum(self.last_n_rpm) / len(self.last_n_rpm)
 
-      #  print(f"Nombre d'impulsions : {impulsions}")
-        print(f"Vitesse moyenne : {moy_rpm:.2f} RPM")
+        #  print(f"Nombre d'impulsions : {impulsions}")
+        # print(f"Vitesse moyenne : {moy_rpm:.2f} RPM")
         return moy_rpm
 
     def calculate_speed(self, impulsions, time_interval):

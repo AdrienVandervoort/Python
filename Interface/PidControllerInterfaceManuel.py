@@ -1,6 +1,7 @@
 import os
 
 import matplotlib.pyplot as plt
+import self
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -34,7 +35,6 @@ class PIDControlApp(QMainWindow):
             encoder_pin_b=7,
             ticks_per_revolution=12
         )
-
 
         # Layout principal
         main_layout = QHBoxLayout()
@@ -86,8 +86,19 @@ class PIDControlApp(QMainWindow):
         self.derivative_checkbox = QCheckBox("Dérivée")
 
         self.proportional_input = QDoubleSpinBox()
+        self.proportional_input.setRange(0, 5)  # Set the range for the spin box
+        self.proportional_input.setDecimals(10)  # Set precision to 10 decimals
+        self.proportional_input.setSingleStep(0.01)  # Step size for increment/decrement
+
         self.integral_input = QDoubleSpinBox()
+        self.integral_input.setRange(0, 5)
+        self.integral_input.setDecimals(10)
+        self.integral_input.setSingleStep(0.01)
+
         self.derivative_input = QDoubleSpinBox()
+        self.derivative_input.setRange(0, 5)
+        self.derivative_input.setDecimals(10)
+        self.derivative_input.setSingleStep(0.01)
 
         pid_layout.addWidget(self.proportional_checkbox)
         pid_layout.addWidget(self.proportional_input)
@@ -99,8 +110,12 @@ class PIDControlApp(QMainWindow):
         control_layout.addWidget(pid_group)
 
         # Bouton de mise à jour du graphique
+        # Creating the "Update Chart" button
         self.update_chart_button = QPushButton("Update Chart")
         control_layout.addWidget(self.update_chart_button)
+
+        # Connecting the button to the update_pid_parameters method
+        self.update_chart_button.clicked.connect(self.update_pid_parameters)
 
         # Ajouter le panneau de contrôle au layout principal
         main_layout.addWidget(control_panel)
@@ -172,35 +187,59 @@ class PIDControlApp(QMainWindow):
             with open(file_path, "r") as file:
                 content = file.read()
                 rpmmax = float(content.split(":")[1].strip())
-         #       print(f"Valeur chargée depuis {file_path} : {rpmmax:.2f}")
+                #       print(f"Valeur chargée depuis {file_path} : {rpmmax:.2f}")
                 return rpmmax
         except FileNotFoundError:
-          #  print("Fichier rpm_average.dat introuvable. Défaut à 1500 RPM.")
+            #  print("Fichier rpm_average.dat introuvable. Défaut à 1500 RPM.")
             return 1600
         except Exception as e:
             print(f"Erreur lors du chargement de rpmmax : {e}")
             return 1600
 
-    def update_pid_parameters(self):
-        """Met à jour les paramètres PID du moteur en fonction des valeurs saisies et des cases cochées."""
+    def update_motor_control(self, pwm):
+        """
+        Update motor control based on PID output.
+        """
         try:
-            # Initialiser les valeurs PID à 0
-            p_value, i_value, d_value = 0.0, 0.0, 0.0
+            # Get the desired set point from the slider
+            set_point = self.set_point_slider.value()
 
-            # Appliquer uniquement les paramètres activés par les cases à cocher
-            if self.proportional_checkbox.isChecked():
-                p_value = self.proportional_input.value()
-            if self.integral_checkbox.isChecked():
-                i_value = self.integral_input.value()
-            if self.derivative_checkbox.isChecked():
-                d_value = self.derivative_input.value()
+            # Measure the actual speed of the motor
+            actual_speed = self.motor.measure_speed(measurement_time=0.1)
 
-            # Appliquer les valeurs au moteur
-            self.motor.set_pid_parameters(p_value, i_value, d_value)
-            print(f"PID mis à jour : P={p_value}, I={i_value}, D={d_value}")
+            # Compute the PID control output
+            pwm_output = self.motor.pid_control(set_point=set_point, actual_speed=actual_speed, dt=1)
+
+            # Apply the PID output as PWM to the motor
+            corrupt = pwm_output
+            corrupt = max(0, min(255, corrupt))
+            self.motor.start(corrupt)
+
+            # Update the display
+            self.actual_speed_display.setText(f"{actual_speed:.2f} RPM")
+            self.pwm_display.setText(f"{pwm_output:.2f}")
 
         except Exception as e:
-            print(f"Erreur lors de la mise à jour des paramètres PID : {e}")
+            pass
+            # print(f"Error in motor control update: {e}")
+
+    def update_pid_parameters(self):
+        """
+            Update PID parameters from the GUI and set them in the motor.
+            """
+        try:
+            # Retrieve PID values from GUI inputs
+            kp = self.proportional_input.value()
+            ki = self.integral_input.value()
+            kd = self.derivative_input.value()
+
+            # Set PID parameters in the motor
+            self.motor.set_pid_parameters(kp, ki, kd)
+            # print(f"Updated PID parameters: Kp={kp}, Ki={ki}, Kd={kd}")
+
+        except Exception as e:
+            pass
+            # print(f"Error updating PID parameters: {e}")
 
     ###############################################################################################
     ##########################################PAS REGARGER#########################################
@@ -298,8 +337,18 @@ class PIDControlApp(QMainWindow):
         else:
             pwm = (slider_value / rpmmaxmotor) * 255
 
-        #print(f"Le résultat de la PWM est {pwm}, affichage du slider : {slider_value}")
-        self.motor.start(pwm)
+        # Vérifier si les paramètres PID sont définis
+        if self.proportional_checkbox.isChecked() or self.integral_checkbox.isChecked() or self.derivative_checkbox.isChecked():
+            # Appeler la méthode de contrôle du moteur en utilisant PID
+            #  print("Utilisation du PID pour la mise à jour du contrôle du moteur.")
+            print(pwm)
+            self.update_motor_control(pwm)  # Passer la valeur de pwm
+        else:
+            # Si aucun paramètre PID n'est défini, démarrer le moteur avec la valeur PWM calculée
+            # print(f"Pas de PID défini. Démarrage du moteur avec PWM: {pwm}")
+            self.motor.start(pwm)
+
+        # Mettre à jour l'affichage de la PWM
         self.pwm_display.setText(f"{pwm:.2f}")
 
     def closeEvent(self, event):
