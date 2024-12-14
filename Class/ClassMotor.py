@@ -40,7 +40,7 @@ class Motor:
         # Compte uniquement les fronts montants
         self.encoder_count += 0.5
 
-    def start(self, speed):
+    def start(self, speed=255):
         """
         Démarre le moteur avec une vitesse donnée.
         """

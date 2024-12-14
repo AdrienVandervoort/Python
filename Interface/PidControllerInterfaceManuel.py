@@ -1,5 +1,5 @@
 import os
-
+import csv
 import matplotlib.pyplot as plt
 import self
 
@@ -41,6 +41,8 @@ class PIDControlApp(QMainWindow):
 
         self.slider_data = []  # Liste pour les valeurs du slider
         self.pwm_data = []  # Liste pour les valeurs de la PWM
+        self.time_data = []  # On va commencer sans données
+        self.speed_data = []  # Liste vide pour stocker les vitesses
 
         # Création du panneau de contrôle
         control_panel = QWidget()
@@ -153,9 +155,7 @@ class PIDControlApp(QMainWindow):
         self.timer.timeout.connect(self.update_chart_real_time)  # Connecte le timer à la méthode de mise à jour
         self.timer.start(100)  # Intervalle de 100 ms (0.1 seconde)
 
-        # Données fictives pour le graphique
-        self.time_data = []  # On va commencer sans données
-        self.speed_data = []  # Liste vide pour stocker les vitesses
+
 
     def update_set_point(self, value):
         """Met à jour la valeur de consigne affichée."""
@@ -171,13 +171,61 @@ class PIDControlApp(QMainWindow):
             print(f"Erreur : {e}")
 
     def stop_motor(self):
-        """Logique pour arrêter le moteur."""
+        """Logique pour arrêter le moteur, réinitialiser le graphique, et enregistrer les données dans un fichier CSV."""
         try:
+            # 1. Arrêter le moteur
             self.motor.stop()  # Arrête le moteur
             self.timer.stop()
             print("Moteur arrêté.")
+
+            self.save_data_to_csv(self.time_data, self.speed_data, self.slider_data, self.pwm_data)
+
+
+            # 2. Réinitialiser les données du graphique
+            self.time_data.clear()
+            self.speed_data.clear()
+            self.slider_data.clear()
+            self.pwm_data.clear()
+
+            # Redessiner un graphique vide
+            self.ax.clear()
+            self.ax.set_title("Motor Speed Over Time")
+            self.ax.set_xlabel("Time (s)")
+            self.ax.set_ylabel("Speed / Value")
+            self.canvas.draw()
+
+
+
         except Exception as e:
             print(f"Erreur : {e}")
+
+    def save_data_to_csv(self, time_data, speed_data, slider_data, pwm_data):
+        """Sauvegarde les données dans un fichier CSV avec des valeurs mesurées en temps réel."""
+        try:
+            # Créer un DataFrame avec les données accumulées
+            data = {
+                "Time (s)": time_data,
+                "Measured Speed (RPM)": speed_data,
+                "Set Point (Slider)": slider_data,
+                "PWM Value": pwm_data
+            }
+            df = pd.DataFrame(data)
+            # Définir le nom du fichier CSV
+            print(self.time_data)
+            print(self.speed_data)
+            print(self.slider_data)
+            print(self.pwm_data)
+
+            # Définir le nom du fichier CSV
+            file_name = f"motor_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+
+            # Sauvegarder les données dans un fichier CSV
+            df.to_csv(file_name, sep=",", index=False)
+            print(f"Données sauvegardées dans le fichier : {file_name}")
+        except Exception as e:
+            print(f"Erreur lors de la sauvegarde des données dans un fichier CSV : {e}")
+
+
 
     def load_rpmmax(self):
         """Charge la valeur de rpmmax depuis le fichier .dat ou retourne une valeur par défaut."""
@@ -280,15 +328,21 @@ class PIDControlApp(QMainWindow):
             measured_speed = self.motor.measure_speed(measurement_time=0.1)
 
             current_time = self.time_data[-1] + 0.1 if self.time_data else 0
-            self.time_data.append(current_time)
-            self.speed_data.append(measured_speed)
+
+
 
             # Ajouter la valeur du slider (vitesse de consigne) et la valeur de la PWM
             slider_value = self.set_point_slider.value()
             pwm_value = (slider_value / rpmmax) * 255  # Calcul de la PWM
 
-            self.slider_data.append(slider_value)  # Liste pour les valeurs du slider
-            self.pwm_data.append(pwm_value)  # Liste pour les valeurs de PWM
+
+            # Ajouter les données dans les listes
+            self.time_data.append(current_time)
+            self.speed_data.append(measured_speed)
+            self.slider_data.append(slider_value)
+            self.pwm_data.append(pwm_value)
+
+
 
             if len(self.time_data) > 100:
                 self.time_data = self.time_data[1:]
@@ -322,6 +376,8 @@ class PIDControlApp(QMainWindow):
             # Mise à jour de l'affichage de la vitesse mesurée
             self.actual_speed_display.setText(f"{measured_speed:.2f} RPM")
             self.pwm_display.setText(f"{pwm_value:.2f}")
+
+
 
         except Exception as e:
             print(f"Erreur lors de la mise à jour du graphique : {e}")
