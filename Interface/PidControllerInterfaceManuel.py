@@ -256,7 +256,7 @@ class PIDControlApp(QMainWindow):
             actual_speed = self.motor.measure_speed(measurement_time=0.1)
 
             # Compute the PID control output
-            pwm_output = self.motor.pid_control(set_point=set_point, actual_speed=actual_speed, dt=1)
+            pwm_output = self.motor.pid_control(set_point=set_point, actual_speed=actual_speed, dt=0.5)
 
             # Apply the PID output as PWM to the motor
             corrupt = pwm_output

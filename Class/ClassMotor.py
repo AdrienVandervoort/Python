@@ -66,7 +66,7 @@ class Motor:
         self.ki = ki
         self.kd = kd
 
-    def pid_control(self, set_point, actual_speed, dt=1):
+    def pid_control(self, set_point, actual_speed, dt=0.5):
         """
         Perform PID control calculation.
 
