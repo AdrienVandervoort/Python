@@ -373,6 +373,7 @@ class PIDControlApp(QMainWindow):
 
 
 
+
         except Exception as e:
             print(f"Erreur lors de la mise à jour du graphique : {e}")
 
